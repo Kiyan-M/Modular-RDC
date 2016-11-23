@@ -174,14 +174,14 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;   
                 
                 brain.setRef(Filtered_Ref);
                 brain.runIteration();
-                
+                cout << "main 177"<< endl;
                 plant.setInput(brain.getOutput());
                 plant.runIteration();
                 
-                
+                cout << "main 181"<< endl;
                 RefModel.setInput(0,Filtered_Ref);
                 RefModel.runIteration();
-                
+                cout << "main 184"<< endl;
                 
                 error = RefModel.getOutput() - plant.getOutput();
                 //error = Filtered_Ref - Plant.getOutput();
