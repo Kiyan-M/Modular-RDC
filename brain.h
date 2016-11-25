@@ -4,17 +4,21 @@
 #include "dynamics.h"
 #include "neuron.h"
 #include "cerebellum.h"
+#include <math.h>
 using namespace std;
 
 
 class Brain {
 
 public:
-	Brain();
+	Brain(int numCerebellum = 1);
 	int addCerebellum();
 	int runIteration();
 	int updateWeights();
+	void calculateErrors(double plantOutput);
 	
+	
+	int updateLambdas();
 	int setLambdas(vector <double> lambdas);
 	int getLambdas(vector<double> &lambdas);
 	int printLambdas();
@@ -25,7 +29,7 @@ public:
         
         double getOutput();
 	
-
+        Neuron RefModel;
 	Neuron Brainstem;
 	vector <Cerebellum *> CB;//  Cerebellar controllers (Inverse Models)
 	vector <Cerebellum *> FWD;
@@ -37,8 +41,10 @@ public:
 	double Motor_CMD;
 	double Error;
 	DelayLine DelayStem;
-
+        
+        vector <double> FWD_error;
 	vector <double> Lambdas;			// Responsibility estimators
+	//int switch_type;
 
 private:
 

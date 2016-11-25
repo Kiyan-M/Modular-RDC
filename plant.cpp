@@ -70,7 +70,6 @@ void Plant::setDynamics(string &fileName)
 
 void Plant::runIteration()
 {
-        cout << subPlant.size() << endl;
         subPlant[curr_Index]->setInput(0,Input);        
         subPlant[curr_Index]->runIteration();
         

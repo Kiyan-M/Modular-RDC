@@ -96,7 +96,7 @@ void Cerebellum::setNeuronalDynamics(string &fileName )
 
 		  neurons.push_back(singleNeuron);
 		  output.push_back(0.0); //add a cerebellar output
-		  outputWeights.push_back(0.0) ; //set the output weight to 0
+		  outputWeights.push_back(distribution(generator)) ; //set the output weight to 0
 
 		  //clear bks and aks
 		  aks.clear();

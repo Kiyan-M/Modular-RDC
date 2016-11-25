@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
                                                         //
                                                         //
 #if LOG_DATA == 1                                       //
-ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;       //
+ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, forward_log;       //
                                                         //
         training_log.open("logTraining.dat");           //
         training_log.precision(8);                      //
@@ -63,16 +63,26 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;   
         << "error" <<           '\t'                    //
         << "Abs error" <<       '\t'                    //
         << "avg error" <<       endl;                   //
+                                                        //
+                                                        //
+        forward_log.open("logFWD.dat");                 //
 #endif                                                  //
 //======================================================//
         
         
         cout << "    INITIALISING System Parametres..." << endl;
         
+        // Delayline for avg error
+        RMS RMS_CTRLerror, RMS_FWDerror;
+        RMS_CTRLerror.setLength(200);
+        RMS_FWDerror.setLength(200);
+        
+        
         
         Plant plant;
         string fileName("testDynamics.dat");
         plant.setDynamics(fileName);
+        plant.choose(0);
         
        // creates Low-pass Filter //
         vector <double> asRef;
@@ -91,6 +101,20 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;   
                 bsRef.push_back(-7.895199724392678e-05);
                 bsRef.push_back(-7.721739823523945e-05);
                 bsRef.push_back( 7.779559790480432e-05);
+
+                /*
+                // Band-Pass Butterworth Filter ( 0.5-10.0 Hz )
+                asRef.push_back( 1.0);
+                asRef.push_back(-3.906756644346583);
+                asRef.push_back( 5.724450493341636);
+                asRef.push_back(-3.728613601606459);
+                asRef.push_back( 0.9109196897991230);
+                bsRef.push_back( 0.0);
+                bsRef.push_back( 1.913246851237629e-03);
+                bsRef.push_back(-1.971836935925982e-03);
+                bsRef.push_back(-1.796066681879949e-03);
+                bsRef.push_back( 1.854656766568302e-03);
+                */
                 
         Neuron preFilter;	
 
@@ -108,8 +132,8 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;   
         // creates controller //S
         Brain brain;
         brain.addCerebellum();
+        brain.addCerebellum();
         brain.Lambdas[0]=1.0;
-        brain.printLambdas();
 
 #if LOG_DATA == 1
         vector <double> w_init;
@@ -125,110 +149,125 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;   
         uniform_real_distribution<double> distribution (-1.0,1.0);
         
 	        
-
-	// Reference Model //
-	        // creates RefModel Dynamics
-        vector <double> asRefModel;
-	vector <double> bsRefModel;
-	asRefModel.clear();
-	bsRefModel.clear();
-
-
-        asRefModel.push_back(1.0);
-        asRefModel.push_back(-0.9048374180359595);
-        //asRefModel.push_back(-0.9813269859720434);
-        //asRefModel.push_back(-0.9512);
-
-        bsRefModel.push_back(0.0);
-        bsRefModel.push_back(0.09513258196404044);
-        //bsRefModel.push_back(1.867301402795667e-2); 
-        //bsRefModel.push_back(0.0098);
-        
-	        
-        Neuron RefModel;
-
-        RefModel.setSize(1);
-        RefModel.setWeight(0,1.0);
-
-        RefModel.setDynamics(bsRefModel,asRefModel);
-        RefModel.runIteration();
-        
-	RefModel.setIC(0.0);
 	
 	
-        int nSteps = 100000;
+        int nSteps = 120000;
         cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
-        double error = 0.0, Ref = 0.0, Filtered_Ref=0.0, avg_error = 0.0;
+        
+        plant.choose(2);
+        brain.printLambdas();
+
+        double RandomNoise = 0.0, Reference=0.0, brainOutput=0.0, plantOutput = 0.0; 
+        double error = 0.0, avg_error = 0.0, rms_error = 0.0, delayedError = 0.0, sqrd_error =0.0;
         for (int i = 0; i < nSteps; i++)
         {
+                //if (i%(nSteps/10)==nSteps/10-1){cout << 1+10*i/(nSteps+1) << ' ' << flush;}
                 
-                if (i==50000){
+                
+                if (i == nSteps/4){
+                        plant.choose(1);
+                        
+                        brain.Lambdas[0] = 0.0;
+                        brain.Lambdas[1] = 1.0;
+                        
+                        brain.printLambdas();
+                }
+                else if (i == 2*nSteps/4){
                         plant.choose(0);
+                        
+                        brain.Lambdas[1] = 0.0;
+                        brain.Lambdas[2] = 1.0;
+                        
+                        brain.printLambdas();
+                }
+                else if (i == 3*nSteps/4){
+                        plant.choose(0);
+                        brain.printLambdas();
+                }
+                else if ( i > 3*nSteps/4){
+                        brain.updateLambdas();
                 }
                 
-                Ref = distribution(generator);
                 
-                preFilter.setInput(0,Ref);
+                RandomNoise = distribution(generator);
+                
+                preFilter.setInput(0,RandomNoise);
                 preFilter.runIteration();
-                Filtered_Ref = preFilter.getOutput();
+                Reference = preFilter.getOutput();
                 
-                brain.setRef(Filtered_Ref);
+                brain.setRef(Reference);
                 brain.runIteration();
-                cout << "main 177"<< endl;
-                plant.setInput(brain.getOutput());
+                brainOutput = brain.getOutput();
+                
+                plant.setInput(brainOutput);
                 plant.runIteration();
+                plantOutput = plant.getOutput();
                 
-                cout << "main 181"<< endl;
-                RefModel.setInput(0,Filtered_Ref);
-                RefModel.runIteration();
-                cout << "main 184"<< endl;
+                brain.calculateErrors(plantOutput);
+                if (i < 3*nSteps/4){
+                        brain.updateWeights();
+                }
                 
-                error = RefModel.getOutput() - plant.getOutput();
-                //error = Filtered_Ref - Plant.getOutput();
-                brain.Error = error;
+                error = brain.RefModel.getOutput() - plantOutput;
                 
-                
-                if (i>-1)    {brain.updateWeights();}
-                else            {}
+
                 
 //==============================================================================//
 #if LOG_DATA == 1                                                               //
                                                                                 //
                 training_log                                                    //
                 << i                    << '\t'                                 //
-                << Filtered_Ref         << '\t'                                 //
-                << RefModel.getOutput() << '\t'                                 //
-                << plant.getOutput()    << '\t'                                 //
+                << Reference            << '\t'                                 //
+                << brain.RefModel.getOutput() << '\t'                           //
+                << plantOutput          << '\t'                                 //
                 << error                << '\t'                                 //
-                << brain.getOutput()    << endl;                                //
+                << brainOutput          << endl;                                //
                                                                                 //
                 weights_log << '\n' << i ;                                      //
-                outputs_log << '\n' << i ;  
-                double sumOP = 0.0;                                    //
-                for (int j = 0; j < brain.CB[0]->neurons.size() ; j++ ){        //
+                outputs_log << '\n' << i ;                                      //
+                double sumOP = 0.0;                                             //
+                for (int k = 0; k < brain.FWD[0]->neurons.size() ; k++ ){       //
                                                                                 //
                         weights_log << '\t'                                     //
-                        << brain.CB[0]->outputWeights[j];                       //
+                        << brain.FWD[0]->outputWeights[k];                      //
                                                                                 //
                         outputs_log << '\t'                                     //
-                        << brain.CB[0]->output[j];
-                        
-                        sumOP +=  brain.CB[0]->output[j];                       //
+                        << brain.FWD[0]->output[k];                             //
+                                                                                //
+                        sumOP +=  brain.FWD[0]->output[k];                      //
                 }                                                               //
                 outputs_log << '\t' << brain.CB_output << '\t' << sumOP;        //
                                                                                 //
                 avg_error = avg_error*i/(i+1) +abs(error) * 1/(i+1);            //
-                                                                                //
+
                 error_log                                                       //
                 << i            << '\t'                                         //
                 << error        << '\t'                                         //
                 << abs(error)   << '\t'                                         //
-                << avg_error     << endl;                                       //
+                << RMS_CTRLerror.feed(error)     << endl;             //
+                                                                                //
+                forward_log                                                     //
+                << i << '\t'                                                    //
+                << plantOutput                     << '\t'; 
+                
+                double sumFWD = 0.0;
+                for (int k = 0; k<brain.FWD.size() ;k++){                       //
+                double FWDerror = abs(brain.FWD[k]->getSingleOutput()-plantOutput);
+                        forward_log 
+                        << brain.FWD[k]->getSingleOutput() << '\t'           //
+                        << brain.Lambdas[k] << '\t'
+                        << FWDerror << '\t';
+                        //<< RMS_FWDerror.feed(FWDerror) << '\t';
+                        
+                        sumFWD += brain.FWD[k]->getSingleOutput()*brain.Lambdas[k];
+                }
+                
+                forward_log << sumFWD << endl;
 #endif                                                                          //
                                                                                 //
 //==============================================================================//
         }
-        cout << "    COMPLETED Training Phase" << endl;
+        cout << endl <<"    COMPLETED Training Phase" << endl;
         
 
 #if LOG_DATA == 1
@@ -242,6 +281,28 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;   
         }
 #endif
 
+/*
+        plant.choose(2);
+        for (int j = 0; j < 100; j++){
+        
+                RandomNoise = distribution(generator);
+                
+                preFilter.setInput(0,RandomNoise);
+                preFilter.runIteration();
+                Reference = preFilter.getOutput();
+                
+                brain.setRef(Reference);
+                brain.runIteration();
+                brainOutput = brain.getOutput();
+                
+                plant.setInput(brainOutput);
+                plant.runIteration();
+                plantOutput = plant.getOutput();
+                
+                brain.updateLambdas();
+                brain.printLambdas();
+        }
+*/
         
         
         
@@ -251,13 +312,11 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log;   
         finalweights_log.close();
         outputs_log.close();
         error_log.close();
+        forward_log.close();
 #endif
 
 
         cout << "\nSIMULATION COMPLETE" << endl;
-        cout << "*******************************" << endl << endl << endl;;
+        cout << "*******************************" << endl << endl << endl;
 	return 1;
 }
-
-
-////////////////////////////////////////////

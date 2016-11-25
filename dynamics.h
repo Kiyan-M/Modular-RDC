@@ -3,7 +3,9 @@
 
 #include <iostream>
 #include <vector>
+#include <math.h>
 using namespace std;
+
 
 class DelayLine
 {
@@ -12,9 +14,21 @@ public:
 	void setLength(unsigned int length);
 	void clear();
 	double feed(double input);
+	double getLength();
 private:
 	vector<double> theLine;
 	unsigned int currentIndex;
+};
+
+class RMS
+{
+public:
+        RMS();
+        void setLength(unsigned int length);
+        double feed(double in);
+private:
+        DelayLine Line;
+        double average;
 };
 
 

@@ -1,14 +1,12 @@
 #include "dynamics.h"
 
 
-	DelayLine::DelayLine()
+DelayLine::DelayLine()
 	{
 		theLine.clear();
 		currentIndex=0;
 	}
-//private:
-//	vector<double> theLine;
-//	currentIndex;
+
 	void DelayLine::setLength(unsigned int length)
 	{
 		theLine.clear();
@@ -42,8 +40,31 @@
 		return retValue; //the oldest value in the pipe
 
 	}
+	
+	double DelayLine::getLength()
+	{
+	        return (double)theLine.size();
+	}
 
-
+RMS::RMS()
+{
+        Line.clear();
+        average = 0.0;
+}
+        void RMS::setLength(unsigned int length)
+        {
+                Line.setLength(length);
+        }
+        
+        double RMS::feed(double in)
+        {
+                in = pow(in,2);
+                double out;
+                out = Line.feed(in);
+                average += (in-out)/((double)Line.getLength());
+                
+                return average;
+        }
 
 
 Dynamics::Dynamics()
