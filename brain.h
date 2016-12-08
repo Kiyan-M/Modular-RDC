@@ -5,6 +5,7 @@
 #include "neuron.h"
 #include "cerebellum.h"
 #include <math.h>
+#include <limits>
 using namespace std;
 
 
@@ -12,7 +13,7 @@ class Brain {
 
 public:
 	Brain(int numCerebellum = 1);
-	int addCerebellum();
+	int addCerebellum(int numCerebellum = 1);
 	int runIteration();
 	int updateWeights();
 	void calculateErrors(double plantOutput);
@@ -31,20 +32,26 @@ public:
 	
         Neuron RefModel;
 	Neuron Brainstem;
-	vector <Cerebellum *> CB;//  Cerebellar controllers (Inverse Models)
-	vector <Cerebellum *> FWD;
+	vector <Cerebellum *> CB;//  Cerebellar controllers
+	vector <Cerebellum *> FWD;// Forward Plant Models
 	
 	
 	double Reference;
-	double Filtered_Reference;
 	double CB_output; 
-	double Motor_CMD;
-	double Error;
 	DelayLine DelayStem;
+	double Motor_CMD;
+
+        //Errors	
+	double  Error;
         
         vector <double> FWD_error;
+        vector <RMS *> RMS_FWDerror;
+        
 	vector <double> Lambdas;			// Responsibility estimators
-	//int switch_type;
+        
+        double Redcount = 0;        
+        double Greencount = 0;        
+        double Bluecount = 0;
 
 private:
 

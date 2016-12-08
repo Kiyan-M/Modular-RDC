@@ -26,6 +26,7 @@ public:
         RMS();
         void setLength(unsigned int length);
         double feed(double in);
+        double getAverage();
 private:
         DelayLine Line;
         double average;

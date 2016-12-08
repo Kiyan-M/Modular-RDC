@@ -65,6 +65,10 @@ RMS::RMS()
                 
                 return average;
         }
+        double RMS::getAverage()
+        {
+                return average;
+        }
 
 
 Dynamics::Dynamics()

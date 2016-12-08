@@ -4,13 +4,12 @@
 
 Brain::Brain(int numCerebellum)
 {
-        // TODO cout << numCerebellum << endl << endl;
         Lambdas.clear();
         CB.clear();
         FWD.clear();
 
         // Create First FF Controller
-        addCerebellum();
+        addCerebellum(numCerebellum);
 
         
         // creates Brainstem controller
@@ -76,33 +75,37 @@ Brain::Brain(int numCerebellum)
         
 }
 
-int Brain::addCerebellum()
+int Brain::addCerebellum(int numCerebellum)
 {
 
-
-        Cerebellum *newCerebellum = new Cerebellum;
-        
-        string filenName("neuronDynamicsAlex10-100ms.dat");
-        newCerebellum->setNeuronalDynamics(filenName);
-        string connectionfilenName("networkConnectionsAlex10-100ms.dat");
-        newCerebellum->setConnections(connectionfilenName);
+        for (int i = 0; i<numCerebellum; i++){
+                Cerebellum *newCerebellum = new Cerebellum;
+                
+                string filenName("neuronDynamicsL1-50ms.dat");
+                newCerebellum->setNeuronalDynamics(filenName);
+                string connectionfilenName("networkConnectionsL1-50ms.dat");
+                newCerebellum->setConnections(connectionfilenName);
 	
-        CB.push_back(newCerebellum);
-        Lambdas.push_back(0.0);
-        
-        
-        
-        Cerebellum *newFWD = new Cerebellum;
-        
-        string filenNameFWD("neuronDynamicsAlex10-100ms.dat");
-        newFWD->setNeuronalDynamics(filenNameFWD);
-        string connectionfilenNameFWD("networkConnectionsAlex10-100ms.dat");
-        newFWD->setConnections(connectionfilenNameFWD);
-        
-        FWD.push_back(newFWD);
-        FWD_error.push_back(0.0);
-        
-        
+                CB.push_back(newCerebellum);
+                Lambdas.push_back(0.0);
+                
+                
+                
+                Cerebellum *newFWD = new Cerebellum;
+                
+                string filenNameFWD("neuronDynamicsL1-50ms.dat");
+                newFWD->setNeuronalDynamics(filenNameFWD);
+                string connectionfilenNameFWD("networkConnectionsL1-50ms.dat");
+                newFWD->setConnections(connectionfilenNameFWD);
+                
+                RMS *newRMS_FWDerror = new RMS;
+                newRMS_FWDerror->setLength(1000);
+                
+                FWD.push_back(newFWD);
+                RMS_FWDerror.push_back(newRMS_FWDerror);
+                FWD_error.push_back(0.0);
+        }
+
         return 1;
 }
 
@@ -123,6 +126,7 @@ int Brain::runIteration()
         
         for (int i=0; i<FWD.size(); i++)
         {
+                //TODO?? Match State
                 FWD[i]->setInput(Motor_CMD);
                 FWD[i]->updateNetwork();
         }
@@ -159,6 +163,7 @@ void Brain::calculateErrors(double plantOutput)
         for (int  i = 0; i < FWD.size(); i++)
         {
                 FWD_error[i] = -FWD[i]->getSingleOutput() + plantOutput;
+                RMS_FWDerror[i]->feed(FWD_error[i]);
         }
 
         Error = RefModel.getOutput() - plantOutput;
@@ -173,12 +178,31 @@ double Brain::getOutput()
 
 
 //--------------Lambdas------------------//
-int Brain::updateLambdas()
+/*int Brain::updateLambdas() //Hard Switch on smoothed FWD error
 {
-//TODO implement infinity
-        double min = 100.0;
+        double min = numeric_limits<double>::max();
         int min_index = 0;
-        for (int i = 0; i < FWD.size(); i++)
+        for (int i = 0; i < RMS_FWDerror.size(); i++)
+        {
+                Lambdas[i] = 0.0;
+                if  ( fabs(RMS_FWDerror[i]->getAverage()) < min )
+                {
+                        min = fabs(FWD_error[i]);
+                        min_index = i;
+                }
+        }
+        Lambdas[min_index] = 1.0;
+        
+        if (min_index==0){Redcount+=1.0;}        
+        else if (min_index==1){Greencount+=1.0;}        
+        else if (min_index==2){Bluecount+=1.0;}
+        
+}*/
+/*int Brain::updateLambdas()    //Hard Switch on unsmoothed FWD error
+{
+        double min = numeric_limits<double>::max();
+        int min_index = 0;
+        for (int i = 0; i < FWD_error.size(); i++)
         {
                 Lambdas[i] = 0.0;
                 if  ( fabs(FWD_error[i]) < min )
@@ -189,7 +213,100 @@ int Brain::updateLambdas()
         }
         Lambdas[min_index] = 1.0;
         
+        if (min_index==0){Redcount+=1.0;}        
+        else if (min_index==1){Greencount+=1.0;}        
+        else if (min_index==2){Bluecount+=1.0;}
+        
+}*/
+/*int Brain::updateLambdas()    //Softmax on unsmoothed Error
+{
+        double sigma = 0.001;
+        double sum = 0.0;
+        for (int i = 0; i < FWD_error.size(); i++)
+        {
+                Lambdas[i] =  (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                sum += Lambdas[i];
+        }
+        for (int j = 0; j < FWD_error.size(); j++)
+        {
+                Lambdas[j] = Lambdas[j]/sum;
+        }       
+        Redcount += Lambdas[0];
+        Greencount += Lambdas[1];
+        Bluecount += Lambdas[2];
+}*/
+/*int Brain::updateLambdas()    //Softmax on smoothed Error
+{
+        double sigma = 0.001;
+        double sum = 0.0;
+        for (int i = 0; i < RMS_FWDerror.size(); i++)
+        {
+                Lambdas[i] =  (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(RMS_FWDerror[i]->getAverage(),2.0)/(2.0*pow(sigma,2)));
+                sum += Lambdas[i];
+        }
+        for (int j = 0; j < RMS_FWDerror.size(); j++)
+        {
+                Lambdas[j] = Lambdas[j]/sum;
+        }       
+        Redcount += Lambdas[0];
+        Greencount += Lambdas[1];
+        Bluecount += Lambdas[2];
+}*/
+/*int Brain::updateLambdas()      // Previous Lambda as prior
+{
+        double sigma = 1.0;
+        double sum = 0.0;
+        for (int i = 0; i < FWD_error.size(); i++)
+        {
+                if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
+                Lambdas[i] *= (1.0/(sqrt(2.0*M_PI)*sigma)*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                sum += Lambdas[i];
+        }
+        for (int j = 0; j < FWD_error.size(); j++)
+        {
+                Lambdas[j] = Lambdas[j]/sum;
+        }       
+        Redcount += Lambdas[0];
+        Greencount += Lambdas[1];
+        Bluecount += Lambdas[2];
+}*/
+int Brain::updateLambdas()      // Previous Lambda as prior
+{
+        double sigma = 0.005;
+        double sum = 0.0;
+        for (int i = 0; i < FWD_error.size(); i++)
+        {
+                if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
+                Lambdas[i] =pow(Lambdas[i],0.98) * (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                sum += Lambdas[i];
+        }
+        for (int j = 0; j < FWD_error.size(); j++)
+        {
+                Lambdas[j] = Lambdas[j]/sum;
+        }       
+        Redcount += Lambdas[0];
+        Greencount += Lambdas[1];
+        Bluecount += Lambdas[2];
 }
+/*int Brain::updateLambdas()      // Previous Lambda as prior
+{
+        double sigma = 1.0;
+        double sum = 0.0;
+        for (int i = 0; i < FWD_error.size(); i++)
+        {
+                if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
+                Lambdas[i] =Lambdas[i]*0.8 + (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                sum += Lambdas[i];
+        }
+        for (int j = 0; j < FWD_error.size(); j++)
+        {
+                Lambdas[j] = Lambdas[j]/sum;
+        }       
+        Redcount += Lambdas[0];
+        Greencount += Lambdas[1];
+        Bluecount += Lambdas[2];
+}*/
+
 
 int Brain::setLambdas(vector <double> lambdas)
 {

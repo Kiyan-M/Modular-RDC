@@ -70,19 +70,17 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 //======================================================//
         
         
-        cout << "    INITIALISING System Parametres..." << endl;
+        //cout << "    INITIALISING System Parametres..." << endl;
         
         // Delayline for avg error
-        RMS RMS_CTRLerror, RMS_FWDerror;
-        RMS_CTRLerror.setLength(200);
-        RMS_FWDerror.setLength(200);
+        RMS RMS_CTRLerror;
+        RMS_CTRLerror.setLength(1000);
         
         
         
         Plant plant;
         string fileName("testDynamics.dat");
         plant.setDynamics(fileName);
-        plant.choose(0);
         
        // creates Low-pass Filter //
         vector <double> asRef;
@@ -130,9 +128,9 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         
         
         // creates controller //S
-        Brain brain;
-        brain.addCerebellum();
-        brain.addCerebellum();
+        Brain brain(4);
+        //brain.addCerebellum();
+        //brain.addCerebellum();
         brain.Lambdas[0]=1.0;
 
 #if LOG_DATA == 1
@@ -152,11 +150,12 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 	
 	
         int nSteps = 120000;
-        cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
+        //cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
         
-        plant.choose(2);
+        plant.choose(1);
         brain.printLambdas();
 
+        double TOTAL = 0.0;
         double RandomNoise = 0.0, Reference=0.0, brainOutput=0.0, plantOutput = 0.0; 
         double error = 0.0, avg_error = 0.0, rms_error = 0.0, delayedError = 0.0, sqrd_error =0.0;
         for (int i = 0; i < nSteps; i++)
@@ -165,28 +164,21 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 
                 
                 if (i == nSteps/4){
-                        plant.choose(1);
-                        
-                        brain.Lambdas[0] = 0.0;
-                        brain.Lambdas[1] = 1.0;
-                        
-                        brain.printLambdas();
-                }
-                else if (i == 2*nSteps/4){
                         plant.choose(0);
-                        
-                        brain.Lambdas[1] = 0.0;
-                        brain.Lambdas[2] = 1.0;
-                        
-                        brain.printLambdas();
+                        brain.Lambdas[0] = 0;
+                        brain.Lambdas[1] = 1;
                 }
-                else if (i == 3*nSteps/4){
-                        plant.choose(0);
-                        brain.printLambdas();
+                else if(i == 2*nSteps/4){
+                        plant.choose(4);
+                        brain.Lambdas[1] = 0;
+                        brain.Lambdas[2] = 1;
                 }
-                else if ( i > 3*nSteps/4){
-                        brain.updateLambdas();
+                else if(i == 3*nSteps/4){
+                        plant.choose(3);
+                        brain.Lambdas[2] = 0;
+                        brain.Lambdas[3] = 1;
                 }
+                
                 
                 
                 RandomNoise = distribution(generator);
@@ -204,12 +196,15 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 plantOutput = plant.getOutput();
                 
                 brain.calculateErrors(plantOutput);
-                if (i < 3*nSteps/4){
-                        brain.updateWeights();
-                }
+
+                brain.updateWeights();
+
                 
                 error = brain.RefModel.getOutput() - plantOutput;
                 
+                for (int z = 0; z < brain.FWD.size(); z++){
+                        TOTAL += fabs(error);
+                }        
 
                 
 //==============================================================================//
@@ -244,7 +239,7 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 << i            << '\t'                                         //
                 << error        << '\t'                                         //
                 << abs(error)   << '\t'                                         //
-                << RMS_CTRLerror.feed(error)     << endl;             //
+                << RMS_CTRLerror.feed(error)     << endl;                       //
                                                                                 //
                 forward_log                                                     //
                 << i << '\t'                                                    //
@@ -257,7 +252,6 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                         << brain.FWD[k]->getSingleOutput() << '\t'           //
                         << brain.Lambdas[k] << '\t'
                         << FWDerror << '\t';
-                        //<< RMS_FWDerror.feed(FWDerror) << '\t';
                         
                         sumFWD += brain.FWD[k]->getSingleOutput()*brain.Lambdas[k];
                 }
@@ -267,7 +261,9 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                                                                                 //
 //==============================================================================//
         }
-        cout << endl <<"    COMPLETED Training Phase" << endl;
+        cout << brain.Redcount << '\t' << brain.Greencount << '\t' << brain.Bluecount << endl;
+        cout << "TOTAL FWD ERROR : " << TOTAL << endl;
+        //cout << endl <<"    COMPLETED Training Phase" << endl;
         
 
 #if LOG_DATA == 1
@@ -316,7 +312,7 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 #endif
 
 
-        cout << "\nSIMULATION COMPLETE" << endl;
-        cout << "*******************************" << endl << endl << endl;
+        //cout << "\nSIMULATION COMPLETE" << endl;
+        //cout << "*******************************" << endl << endl << endl;
 	return 1;
 }
