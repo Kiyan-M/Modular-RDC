@@ -79,7 +79,8 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         
         
         Plant plant;
-        string fileName("testDynamics.dat");
+        //string fileName("testDynamics.dat");
+        string fileName("plantDynamics.dat"); //Plants in rane 5->50 steps of 5 (1->9)
         plant.setDynamics(fileName);
         
        // creates Low-pass Filter //
@@ -128,7 +129,7 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         
         
         // creates controller //S
-        Brain brain(4);
+        Brain brain(1);
         //brain.addCerebellum();
         //brain.addCerebellum();
         brain.Lambdas[0]=1.0;
@@ -140,7 +141,6 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         }
 #endif
 
-
         // Random Noise //
         unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
         mt19937 generator (seed);
@@ -149,13 +149,13 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 	        
 	
 	
-        int nSteps = 120000;
+        int nSteps = 800000;
         //cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
         
-        plant.choose(1);
-        brain.printLambdas();
+        plant.choose(9);
 
-        double TOTAL = 0.0;
+        double TOTAL1 = 0.0;
+        double TOTAL2 = 0.0;
         double RandomNoise = 0.0, Reference=0.0, brainOutput=0.0, plantOutput = 0.0; 
         double error = 0.0, avg_error = 0.0, rms_error = 0.0, delayedError = 0.0, sqrd_error =0.0;
         for (int i = 0; i < nSteps; i++)
@@ -163,21 +163,28 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 //if (i%(nSteps/10)==nSteps/10-1){cout << 1+10*i/(nSteps+1) << ' ' << flush;}
                 
                 
-                if (i == nSteps/4){
-                        plant.choose(0);
-                        brain.Lambdas[0] = 0;
-                        brain.Lambdas[1] = 1;
+                /*if (i == nSteps/4){
+                        plant.choose(7);
+                        //brain.Lambdas[0] = 0.0;
+                        //brain.Lambdas[1] = 1.0;
                 }
                 else if(i == 2*nSteps/4){
-                        plant.choose(4);
-                        brain.Lambdas[1] = 0;
-                        brain.Lambdas[2] = 1;
+                        plant.choose(1); //******************
+                        //brain.Lambdas[0] = 1.0/2.0;
+                        //brain.Lambdas[1] = 1.0/2.0;
+                        for (int z = 0; z<500; z++){
+                                //brain.RMS_FWDerror[0]->setLength(500);
+                                //brain.RMS_FWDerror[1]->setLength(500);
+                                //brain.RMS_FWDerror[0]->feed(0.0125);
+                                //brain.RMS_FWDerror[1]->feed(0.0125);
+                        }
                 }
                 else if(i == 3*nSteps/4){
-                        plant.choose(3);
-                        brain.Lambdas[2] = 0;
-                        brain.Lambdas[3] = 1;
+                        plant.choose(7);
                 }
+                else if(i == 4*nSteps/5){
+                        plant.choose(4);
+                }*/
                 
                 
                 
@@ -197,14 +204,19 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 
                 brain.calculateErrors(plantOutput);
 
-                brain.updateWeights();
 
-                
                 error = brain.RefModel.getOutput() - plantOutput;
                 
-                for (int z = 0; z < brain.FWD.size(); z++){
-                        TOTAL += fabs(error);
-                }        
+                        brain.updateWeights();
+                        TOTAL1 += fabs(error);
+                        TOTAL2 += fabs(brain.FWD[0]->getSingleOutput()-plantOutput);
+
+                /*if (i > 2*nSteps/4){
+                        //brain.updateLambdas();
+                }
+                else {
+                }*/
+                      
 
                 
 //==============================================================================//
@@ -223,8 +235,6 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 double sumOP = 0.0;                                             //
                 for (int k = 0; k < brain.FWD[0]->neurons.size() ; k++ ){       //
                                                                                 //
-                        weights_log << '\t'                                     //
-                        << brain.FWD[0]->outputWeights[k];                      //
                                                                                 //
                         outputs_log << '\t'                                     //
                         << brain.FWD[0]->output[k];                             //
@@ -247,13 +257,19 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 
                 double sumFWD = 0.0;
                 for (int k = 0; k<brain.FWD.size() ;k++){                       //
-                double FWDerror = abs(brain.FWD[k]->getSingleOutput()-plantOutput);
+                double FWDerror = fabs(brain.FWD[k]->getSingleOutput()-plantOutput);
                         forward_log 
                         << brain.FWD[k]->getSingleOutput() << '\t'           //
                         << brain.Lambdas[k] << '\t'
                         << FWDerror << '\t';
                         
                         sumFWD += brain.FWD[k]->getSingleOutput()*brain.Lambdas[k];
+                        
+                        
+                        for (int j = 0; j < brain.FWD[0]->neurons.size() ; j++ ){       //
+                                weights_log << '\t'                                     //
+                                << brain.FWD[k]->outputWeights[j] << '\t';     
+                                }          //
                 }
                 
                 forward_log << sumFWD << endl;
@@ -261,8 +277,10 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                                                                                 //
 //==============================================================================//
         }
-        cout << brain.Redcount << '\t' << brain.Greencount << '\t' << brain.Bluecount << endl;
-        cout << "TOTAL FWD ERROR : " << TOTAL << endl;
+        //cout << brain.Redcount << '\t' << brain.Greencount << '\t' << brain.Bluecount << endl;
+        cout << "TOTAL CTRL ERROR : " << TOTAL1 << endl;
+        cout << "TOTAL FWD ERROR : " << TOTAL2 << endl;
+        //cout << "AVERAGE FWD ERROR : " << TOTAL/nSteps << endl;
         //cout << endl <<"    COMPLETED Training Phase" << endl;
         
 

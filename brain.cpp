@@ -1,6 +1,6 @@
 #include "brain.h"
 
-#define LEARNING_RATE 0.01
+#define LEARNING_RATE 0.1
 
 Brain::Brain(int numCerebellum)
 {
@@ -81,9 +81,9 @@ int Brain::addCerebellum(int numCerebellum)
         for (int i = 0; i<numCerebellum; i++){
                 Cerebellum *newCerebellum = new Cerebellum;
                 
-                string filenName("neuronDynamicsL1-50ms.dat");
+                string filenName("neuronDynamics200-5ConstNum.dat");
                 newCerebellum->setNeuronalDynamics(filenName);
-                string connectionfilenName("networkConnectionsL1-50ms.dat");
+                string connectionfilenName("networkConnections200-5ConstNum.dat");
                 newCerebellum->setConnections(connectionfilenName);
 	
                 CB.push_back(newCerebellum);
@@ -93,13 +93,13 @@ int Brain::addCerebellum(int numCerebellum)
                 
                 Cerebellum *newFWD = new Cerebellum;
                 
-                string filenNameFWD("neuronDynamicsL1-50ms.dat");
+                string filenNameFWD("neuronDynamics20-0p5ConstNum.dat");
                 newFWD->setNeuronalDynamics(filenNameFWD);
-                string connectionfilenNameFWD("networkConnectionsL1-50ms.dat");
+                string connectionfilenNameFWD("networkConnections20-0p5ConstNum.dat");
                 newFWD->setConnections(connectionfilenNameFWD);
                 
                 RMS *newRMS_FWDerror = new RMS;
-                newRMS_FWDerror->setLength(1000);
+                newRMS_FWDerror->setLength(500);
                 
                 FWD.push_back(newFWD);
                 RMS_FWDerror.push_back(newRMS_FWDerror);
@@ -178,27 +178,45 @@ double Brain::getOutput()
 
 
 //--------------Lambdas------------------//
-/*int Brain::updateLambdas() //Hard Switch on smoothed FWD error
+
+int Brain::updateLambdas() //Modified Narendra
 {
-        double min = numeric_limits<double>::max();
-        int min_index = 0;
-        for (int i = 0; i < RMS_FWDerror.size(); i++)
+        double alpha = 0.5, Beta = 0.5;
+        double sum = 0.0, Cost;
+        for (int i = 0; i < FWD_error.size(); i++)
         {
-                Lambdas[i] = 0.0;
-                if  ( fabs(RMS_FWDerror[i]->getAverage()) < min )
-                {
-                        min = fabs(FWD_error[i]);
-                        min_index = i;
-                }
+                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
+                
+                Cost = alpha*pow(FWD_error[i],2) + Beta*RMS_FWDerror[i]->getAverage()*500.0;
+                Lambdas[i] = 1.0/Cost;
+                
+                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
+                
+                sum += Lambdas[i];
         }
-        Lambdas[min_index] = 1.0;
-        
-        if (min_index==0){Redcount+=1.0;}        
-        else if (min_index==1){Greencount+=1.0;}        
-        else if (min_index==2){Bluecount+=1.0;}
-        
+        for (int j = 0; j < FWD_error.size(); j++)
+        {
+                Lambdas[j] = Lambdas[j]/sum;
+        }             
+}
+/*int Brain::updateLambdas() //Original Narendra
+{
+        double alpha = 0.5, Beta = 0.5;
+        int mindex = 0;
+        double minCost = 1e50, Cost;
+        for (int i = 0; i < FWD_error.size(); i++)
+        {
+                Cost = alpha*pow(FWD_error[i],2) + Beta*RMS_FWDerror[i]->getAverage()*500.0;
+                if (Cost < minCost){
+                        minCost = Cost;
+                        mindex = i;
+                }
+                Lambdas[i] = 0.0;
+        }
+        Lambdas[mindex] = 1.0;
 }*/
-/*int Brain::updateLambdas()    //Hard Switch on unsmoothed FWD error
+
+/*int Brain::updateLambdas()    //Hard Switch
 {
         double min = numeric_limits<double>::max();
         int min_index = 0;
@@ -218,33 +236,17 @@ double Brain::getOutput()
         else if (min_index==2){Bluecount+=1.0;}
         
 }*/
-/*int Brain::updateLambdas()    //Softmax on unsmoothed Error
+/*int Brain::updateLambdas()    //Softmax (Wolpert)
 {
-        double sigma = 0.001;
+        double sigma = 0.01;
         double sum = 0.0;
         for (int i = 0; i < FWD_error.size(); i++)
         {
                 Lambdas[i] =  (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
                 sum += Lambdas[i];
         }
         for (int j = 0; j < FWD_error.size(); j++)
-        {
-                Lambdas[j] = Lambdas[j]/sum;
-        }       
-        Redcount += Lambdas[0];
-        Greencount += Lambdas[1];
-        Bluecount += Lambdas[2];
-}*/
-/*int Brain::updateLambdas()    //Softmax on smoothed Error
-{
-        double sigma = 0.001;
-        double sum = 0.0;
-        for (int i = 0; i < RMS_FWDerror.size(); i++)
-        {
-                Lambdas[i] =  (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(RMS_FWDerror[i]->getAverage(),2.0)/(2.0*pow(sigma,2)));
-                sum += Lambdas[i];
-        }
-        for (int j = 0; j < RMS_FWDerror.size(); j++)
         {
                 Lambdas[j] = Lambdas[j]/sum;
         }       
@@ -254,12 +256,12 @@ double Brain::getOutput()
 }*/
 /*int Brain::updateLambdas()      // Previous Lambda as prior
 {
-        double sigma = 1.0;
+        double sigma = 0.8;
         double sum = 0.0;
         for (int i = 0; i < FWD_error.size(); i++)
         {
                 if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
-                Lambdas[i] *= (1.0/(sqrt(2.0*M_PI)*sigma)*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                Lambdas[i] *= (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
                 sum += Lambdas[i];
         }
         for (int j = 0; j < FWD_error.size(); j++)
@@ -270,32 +272,36 @@ double Brain::getOutput()
         Greencount += Lambdas[1];
         Bluecount += Lambdas[2];
 }*/
-int Brain::updateLambdas()      // Previous Lambda as prior
+/*int Brain::updateLambdas()      // Previous Lambda as prior w Memory Loss
 {
-        double sigma = 0.005;
+        char c;
+        double sigma = 0.01;
         double sum = 0.0;
         for (int i = 0; i < FWD_error.size(); i++)
         {
-                if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
-                Lambdas[i] =pow(Lambdas[i],0.98) * (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                Lambdas[i] =pow(Lambdas[i],0.999) * (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
                 sum += Lambdas[i];
+
         }
         for (int j = 0; j < FWD_error.size(); j++)
         {
                 Lambdas[j] = Lambdas[j]/sum;
+                //cout << sum << endl;
         }       
         Redcount += Lambdas[0];
         Greencount += Lambdas[1];
         Bluecount += Lambdas[2];
-}
-/*int Brain::updateLambdas()      // Previous Lambda as prior
+}/*
+/*int Brain::updateLambdas()      // Discounted Lambda
 {
-        double sigma = 1.0;
+        double sigma = 0.02;
         double sum = 0.0;
         for (int i = 0; i < FWD_error.size(); i++)
         {
                 if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
-                Lambdas[i] =Lambdas[i]*0.8 + (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                Lambdas[i] =Lambdas[i] + 0.004*(1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
                 sum += Lambdas[i];
         }
         for (int j = 0; j < FWD_error.size(); j++)
@@ -306,6 +312,7 @@ int Brain::updateLambdas()      // Previous Lambda as prior
         Greencount += Lambdas[1];
         Bluecount += Lambdas[2];
 }*/
+
 
 
 int Brain::setLambdas(vector <double> lambdas)
