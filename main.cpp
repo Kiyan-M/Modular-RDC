@@ -72,10 +72,6 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         
         //cout << "    INITIALISING System Parametres..." << endl;
         
-        // Delayline for avg error
-        RMS RMS_CTRLerror;
-        RMS_CTRLerror.setLength(1000);
-        
         
         
         Plant plant;
@@ -149,10 +145,10 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 	        
 	
 	
-        int nSteps = 800000;
+        int nSteps = 100000;
         //cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
         
-        plant.choose(9);
+        plant.choose(5);
 
         double TOTAL1 = 0.0;
         double TOTAL2 = 0.0;
@@ -199,6 +195,7 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 brainOutput = brain.getOutput();
                 
                 plant.setInput(brainOutput);
+                //plant.setInput(Reference);
                 plant.runIteration();
                 plantOutput = plant.getOutput();
                 
@@ -211,11 +208,10 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                         TOTAL1 += fabs(error);
                         TOTAL2 += fabs(brain.FWD[0]->getSingleOutput()-plantOutput);
 
-                /*if (i > 2*nSteps/4){
-                        //brain.updateLambdas();
+                if (i > 2*nSteps/4){
+                        brain.updateLambdas();
                 }
-                else {
-                }*/
+                
                       
 
                 
@@ -244,12 +240,11 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 outputs_log << '\t' << brain.CB_output << '\t' << sumOP;        //
                                                                                 //
                 avg_error = avg_error*i/(i+1) +abs(error) * 1/(i+1);            //
-
+                                                                                //
                 error_log                                                       //
                 << i            << '\t'                                         //
                 << error        << '\t'                                         //
-                << abs(error)   << '\t'                                         //
-                << RMS_CTRLerror.feed(error)     << endl;                       //
+                << abs(error)   << endl;                                        //
                                                                                 //
                 forward_log                                                     //
                 << i << '\t'                                                    //
@@ -268,8 +263,8 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                         
                         for (int j = 0; j < brain.FWD[0]->neurons.size() ; j++ ){       //
                                 weights_log << '\t'                                     //
-                                << brain.FWD[k]->outputWeights[j] << '\t';     
-                                }          //
+                                << brain.FWD[k]->outputWeights[j] << '\t';              //  
+                                }                                                       //
                 }
                 
                 forward_log << sumFWD << endl;
@@ -277,11 +272,8 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                                                                                 //
 //==============================================================================//
         }
-        //cout << brain.Redcount << '\t' << brain.Greencount << '\t' << brain.Bluecount << endl;
         cout << "TOTAL CTRL ERROR : " << TOTAL1 << endl;
         cout << "TOTAL FWD ERROR : " << TOTAL2 << endl;
-        //cout << "AVERAGE FWD ERROR : " << TOTAL/nSteps << endl;
-        //cout << endl <<"    COMPLETED Training Phase" << endl;
         
 
 #if LOG_DATA == 1

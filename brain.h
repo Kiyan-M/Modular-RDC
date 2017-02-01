@@ -49,10 +49,6 @@ public:
         
 	vector <double> Lambdas; //Responsibility estimators
         
-        double Redcount = 0;        
-        double Greencount = 0;        
-        double Bluecount = 0;
-
 private:
 
 

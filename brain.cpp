@@ -1,6 +1,6 @@
 #include "brain.h"
 
-#define LEARNING_RATE 0.1
+#define LEARNING_RATE 0.01
 
 Brain::Brain(int numCerebellum)
 {
@@ -81,9 +81,9 @@ int Brain::addCerebellum(int numCerebellum)
         for (int i = 0; i<numCerebellum; i++){
                 Cerebellum *newCerebellum = new Cerebellum;
                 
-                string filenName("neuronDynamics200-5ConstNum.dat");
+                string filenName("neuronDynamics20-0p5ConstNum.dat");
                 newCerebellum->setNeuronalDynamics(filenName);
-                string connectionfilenName("networkConnections200-5ConstNum.dat");
+                string connectionfilenName("networkConnections20-0p5ConstNum.dat");
                 newCerebellum->setConnections(connectionfilenName);
 	
                 CB.push_back(newCerebellum);
@@ -126,13 +126,11 @@ int Brain::runIteration()
         
         for (int i=0; i<FWD.size(); i++)
         {
-                //TODO?? Match State
                 FWD[i]->setInput(Motor_CMD);
                 FWD[i]->updateNetwork();
         }
         
         CB_output = 0.0;
-        
         for (int  j = 0; j < CB.size(); j++)
         {
                 CB[j]->setInput(Motor_CMD);
@@ -231,10 +229,7 @@ int Brain::updateLambdas() //Modified Narendra
         }
         Lambdas[min_index] = 1.0;
         
-        if (min_index==0){Redcount+=1.0;}        
-        else if (min_index==1){Greencount+=1.0;}        
-        else if (min_index==2){Bluecount+=1.0;}
-        
+
 }*/
 /*int Brain::updateLambdas()    //Softmax (Wolpert)
 {
@@ -250,9 +245,7 @@ int Brain::updateLambdas() //Modified Narendra
         {
                 Lambdas[j] = Lambdas[j]/sum;
         }       
-        Redcount += Lambdas[0];
-        Greencount += Lambdas[1];
-        Bluecount += Lambdas[2];
+
 }*/
 /*int Brain::updateLambdas()      // Previous Lambda as prior
 {
@@ -268,9 +261,7 @@ int Brain::updateLambdas() //Modified Narendra
         {
                 Lambdas[j] = Lambdas[j]/sum;
         }       
-        Redcount += Lambdas[0];
-        Greencount += Lambdas[1];
-        Bluecount += Lambdas[2];
+
 }*/
 /*int Brain::updateLambdas()      // Previous Lambda as prior w Memory Loss
 {
@@ -289,9 +280,7 @@ int Brain::updateLambdas() //Modified Narendra
                 Lambdas[j] = Lambdas[j]/sum;
                 //cout << sum << endl;
         }       
-        Redcount += Lambdas[0];
-        Greencount += Lambdas[1];
-        Bluecount += Lambdas[2];
+
 }/*
 /*int Brain::updateLambdas()      // Discounted Lambda
 {
@@ -308,9 +297,7 @@ int Brain::updateLambdas() //Modified Narendra
         {
                 Lambdas[j] = Lambdas[j]/sum;
         }       
-        Redcount += Lambdas[0];
-        Greencount += Lambdas[1];
-        Bluecount += Lambdas[2];
+
 }*/
 
 
