@@ -5,8 +5,8 @@
 Brain::Brain(int numCerebellum)
 {
         Lambdas.clear();
-        CB.clear();
-        FWD.clear();
+        C.clear();
+        F.clear();
 
         // Create First FF Controller
         addCerebellum(numCerebellum);
@@ -81,29 +81,34 @@ int Brain::addCerebellum(int numCerebellum)
         for (int i = 0; i<numCerebellum; i++){
                 Cerebellum *newCerebellum = new Cerebellum;
                 
-                string filenName("neuronDynamics20-0p5ConstNum.dat");
-                newCerebellum->setNeuronalDynamics(filenName);
-                string connectionfilenName("networkConnections20-0p5ConstNum.dat");
-                newCerebellum->setConnections(connectionfilenName);
+                //string filenName("neuronDynamics50-1ConstNum.dat");
+                //newCerebellum->setNeuronalDynamics(filenName);
+                //string connectionfilenName("networkConnections50-1ConstNum.dat");
+                //newCerebellum->setConnections(connectionfilenName);
+                newCerebellum->setNeuronalDynamics(1.0*M_PI,40.0*M_PI, 50);
+                newCerebellum->setConnections();
 	
-                CB.push_back(newCerebellum);
+                C.push_back(newCerebellum);
                 Lambdas.push_back(0.0);
                 
                 
                 
-                Cerebellum *newFWD = new Cerebellum;
+                Cerebellum *newF = new Cerebellum;
                 
-                string filenNameFWD("neuronDynamics20-0p5ConstNum.dat");
-                newFWD->setNeuronalDynamics(filenNameFWD);
-                string connectionfilenNameFWD("networkConnections20-0p5ConstNum.dat");
-                newFWD->setConnections(connectionfilenNameFWD);
+                //string filenNameF("neuronDynamics50-0p5ConstNum.dat");
+                //newF->setNeuronalDynamics(filenNameF);
+                //string connectionfilenNameF("networkConnections50-0p5ConstNum.dat");
+                //newF->setConnections(connectionfilenNameF);
+                newF->setNeuronalDynamics(20.0*M_PI,1000.0*M_PI, 5);
+                newF->setConnections();
                 
-                RMS *newRMS_FWDerror = new RMS;
-                newRMS_FWDerror->setLength(500);
+                DelayLine *newRMS_Ferror = new DelayLine;
+                newRMS_Ferror->setLength(500);
+                newRMS_Ferror->setDecayRate(exp(-0.000));
                 
-                FWD.push_back(newFWD);
-                RMS_FWDerror.push_back(newRMS_FWDerror);
-                FWD_error.push_back(0.0);
+                F.push_back(newF);
+                RMS_Ferror.push_back(newRMS_Ferror);
+                F_error.push_back(0.0);
         }
 
         return 1;
@@ -116,27 +121,28 @@ int Brain::runIteration()
         RefModel.runIteration();
 
 
-        Reference = Reference + CB_output;
+        Reference = Reference + C_output;
         
         
         //Brainstem.setInput(0,Reference);
         //Brainstem.runIteration();
         //Motor_CMD = Brainstem.getOutput();
         Motor_CMD=DelayStem.feed(Reference);
-        
-        for (int i=0; i<FWD.size(); i++)
+
+
+        for (int i=0; i<F.size(); i++)
         {
-                FWD[i]->setInput(Motor_CMD);
-                FWD[i]->updateNetwork();
+                F[i]->setInput(Motor_CMD);
+                F[i]->updateNetwork();
         }
         
-        CB_output = 0.0;
-        for (int  j = 0; j < CB.size(); j++)
+        C_output = 0.0;
+        for (int  j = 0; j < C.size(); j++)
         {
-                CB[j]->setInput(Motor_CMD);
-                CB[j]->updateNetwork();
+                C[j]->setInput(Motor_CMD);
+                C[j]->updateNetwork();
                 
-                CB_output += CB[j]->getSingleOutput()*Lambdas[j] ;
+                C_output += C[j]->getSingleOutput()*Lambdas[j] ;
         }
 
         
@@ -144,24 +150,24 @@ int Brain::runIteration()
 
 int Brain::updateWeights()
 {
-        for (int  i = 0; i < FWD.size(); i++)
+        for (int  i = 0; i < F.size(); i++)
         {
-                FWD[i]->updateOutputWeights(0.1,Lambdas[i],FWD_error[i]);
+                F[i]->updateOutputWeights(0.1,Lambdas[i],F_error[i]);
         }
 
-        for (int  j = 0; j < CB.size(); j++)
+        for (int  j = 0; j < C.size(); j++)
         {
-                CB[j]->updateOutputWeights(LEARNING_RATE,Lambdas[j],Error);
+                C[j]->updateOutputWeights(LEARNING_RATE,Lambdas[j],Error);
         }
         
 }
 
 void Brain::calculateErrors(double plantOutput)
 {
-        for (int  i = 0; i < FWD.size(); i++)
+        for (int  i = 0; i < F.size(); i++)
         {
-                FWD_error[i] = -FWD[i]->getSingleOutput() + plantOutput;
-                RMS_FWDerror[i]->feed(FWD_error[i]);
+                F_error[i] = -F[i]->getSingleOutput() + plantOutput;
+                RMS_Ferror[i]->feed(pow(F_error[i],2));
         }
 
         Error = RefModel.getOutput() - plantOutput;
@@ -177,22 +183,72 @@ double Brain::getOutput()
 
 //--------------Lambdas------------------//
 
+/*int Brain::updateLambdas() //Modified Narendra
+{
+        Lambdas[0]=1.0;
+}*/
+
+/*int Brain::updateLambdas() //Exp Narendra
+{
+    double alpha = 0.5, Beta=0.5;
+    double sum = 0.0, Cost;
+    for (int i = 0; i < F_error.size(); i++)
+    {
+            Cost=alpha*F_error[i]+Beta*RMS_Ferror[i]->getDecayingAverage();
+            if (Cost < 1e-12){Cost =1e-12;}
+            Lambdas[i] = 1.0/Cost;
+            if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
+            
+            sum += Lambdas[i];
+            
+    }
+    
+    for (int j = 0; j < F_error.size(); j++)
+    {
+        Lambdas[j] = Lambdas[j]/sum;
+    }
+}*/
+
+/*int Brain::updateLambdas() //Exp Narendra
+{
+    double alpha = 0.5, Beta=0.5;
+    int mindex=0;
+    double Cost, min=numeric_limits<double>::max();
+    
+    for (int i = 0; i < F_error.size(); i++)
+    {
+            Cost=alpha*pow(F_error[i],2);//+Beta*RMS_Ferror[i]->getDecayingAverage();
+            if (Cost < min){mindex = i;}            
+    }
+    
+    for (int j = 0; j < F_error.size(); j++)
+    {
+        if (j == mindex){
+            Lambdas[j] = 1.0;
+        }
+        else
+        {
+            Lambdas[j] = 0.0;
+        }
+    }
+}*/
+
 int Brain::updateLambdas() //Modified Narendra
 {
         double alpha = 0.5, Beta = 0.5;
         double sum = 0.0, Cost;
-        for (int i = 0; i < FWD_error.size(); i++)
+        for (int i = 0; i < F_error.size(); i++)
         {
-                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
                 
-                Cost = alpha*pow(FWD_error[i],2) + Beta*RMS_FWDerror[i]->getAverage()*500.0;
+                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
+                Cost = alpha*pow(F_error[i],2) + Beta*RMS_Ferror[i]->getAverage()*500.0;
+                if (Cost < 1e-12){Cost =1e-12;} 
                 Lambdas[i] = 1.0/Cost;
                 
-                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
                 
                 sum += Lambdas[i];
         }
-        for (int j = 0; j < FWD_error.size(); j++)
+        for (int j = 0; j < F_error.size(); j++)
         {
                 Lambdas[j] = Lambdas[j]/sum;
         }             
@@ -202,9 +258,9 @@ int Brain::updateLambdas() //Modified Narendra
         double alpha = 0.5, Beta = 0.5;
         int mindex = 0;
         double minCost = 1e50, Cost;
-        for (int i = 0; i < FWD_error.size(); i++)
+        for (int i = 0; i < F_error.size(); i++)
         {
-                Cost = alpha*pow(FWD_error[i],2) + Beta*RMS_FWDerror[i]->getAverage()*500.0;
+                Cost = alpha*pow(F_error[i],2) + Beta*RMS_Ferror[i]->getAverage()*500.0;
                 if (Cost < minCost){
                         minCost = Cost;
                         mindex = i;
@@ -218,12 +274,12 @@ int Brain::updateLambdas() //Modified Narendra
 {
         double min = numeric_limits<double>::max();
         int min_index = 0;
-        for (int i = 0; i < FWD_error.size(); i++)
+        for (int i = 0; i < F_error.size(); i++)
         {
                 Lambdas[i] = 0.0;
-                if  ( fabs(FWD_error[i]) < min )
+                if  ( fabs(F_error[i]) < min )
                 {
-                        min = fabs(FWD_error[i]);
+                        min = fabs(F_error[i]);
                         min_index = i;
                 }
         }
@@ -235,65 +291,13 @@ int Brain::updateLambdas() //Modified Narendra
 {
         double sigma = 0.01;
         double sum = 0.0;
-        for (int i = 0; i < FWD_error.size(); i++)
+        for (int i = 0; i < F_error.size(); i++)
         {
-                Lambdas[i] =  (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
+                Lambdas[i] =  (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(F_error[i],2.0)/(2.0*pow(sigma,2)));
                 if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
                 sum += Lambdas[i];
         }
-        for (int j = 0; j < FWD_error.size(); j++)
-        {
-                Lambdas[j] = Lambdas[j]/sum;
-        }       
-
-}*/
-/*int Brain::updateLambdas()      // Previous Lambda as prior
-{
-        double sigma = 0.8;
-        double sum = 0.0;
-        for (int i = 0; i < FWD_error.size(); i++)
-        {
-                if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
-                Lambdas[i] *= (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
-                sum += Lambdas[i];
-        }
-        for (int j = 0; j < FWD_error.size(); j++)
-        {
-                Lambdas[j] = Lambdas[j]/sum;
-        }       
-
-}*/
-/*int Brain::updateLambdas()      // Previous Lambda as prior w Memory Loss
-{
-        char c;
-        double sigma = 0.01;
-        double sum = 0.0;
-        for (int i = 0; i < FWD_error.size(); i++)
-        {
-                Lambdas[i] =pow(Lambdas[i],0.999) * (1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
-                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
-                sum += Lambdas[i];
-
-        }
-        for (int j = 0; j < FWD_error.size(); j++)
-        {
-                Lambdas[j] = Lambdas[j]/sum;
-                //cout << sum << endl;
-        }       
-
-}/*
-/*int Brain::updateLambdas()      // Discounted Lambda
-{
-        double sigma = 0.02;
-        double sum = 0.0;
-        for (int i = 0; i < FWD_error.size(); i++)
-        {
-                if (Lambdas[i] == 0.0){Lambdas[i] =1.0;} 
-                Lambdas[i] =Lambdas[i] + 0.004*(1.0/(sqrt(2.0*M_PI)*sigma))*exp(-pow(FWD_error[i],2.0)/(2.0*pow(sigma,2)));
-                if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
-                sum += Lambdas[i];
-        }
-        for (int j = 0; j < FWD_error.size(); j++)
+        for (int j = 0; j < F_error.size(); j++)
         {
                 Lambdas[j] = Lambdas[j]/sum;
         }       

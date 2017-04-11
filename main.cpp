@@ -1,18 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <iostream>
-#include <fstream>
-#include <random>
-#include <chrono>
-#include "dynamics.h"
-#include "neuron.h"
-#include "cerebellum.h"
-#include "plant.h"
-#include "brain.h"
-
-
-
-using namespace std;
+#include "main.h"
 
 
 #define NUMBER_OF_SIMULATION_STEPS 300000
@@ -28,7 +14,9 @@ int main(int argc, char *argv[])
                                                         //
                                                         //
 #if LOG_DATA == 1                                       //
-ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, forward_log;       //
+ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, forward_log, temp_log;       //
+                                         
+        temp_log.open("logTemp.dat");
                                                         //
         training_log.open("logTraining.dat");           //
         training_log.precision(8);                      //
@@ -64,13 +52,17 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         << "Abs error" <<       '\t'                    //
         << "avg error" <<       endl;                   //
                                                         //
-                                                        //
         forward_log.open("logFWD.dat");                 //
+        forward_log                                     //
+        << "index" <<           '\t'                    //
+        << "Plant" <<           '\t'                    //
+        << "FModel1" <<       '\t'                      //
+        << "FError1" <<       '\t'                      //
+        << "Lambda1" <<       endl;                     //
+                                                        //
+                                                        //
 #endif                                                  //
 //======================================================//
-        
-        
-        //cout << "    INITIALISING System Parametres..." << endl;
         
         
         
@@ -120,20 +112,14 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         preFilter.setDynamics(bsRef,asRef);
         preFilter.setIC(0.0);
 
-
-        
-        
         
         // creates controller //S
-        Brain brain(1);
-        //brain.addCerebellum();
-        //brain.addCerebellum();
-        brain.Lambdas[0]=1.0;
-
+        Brain brain(2);
+        //brain.Lambdas[0]=1.0;
 #if LOG_DATA == 1
         vector <double> w_init;
-        for(int k = 0; k<brain.CB[0]->neurons.size(); k++){
-                w_init.push_back(brain.CB[0]->outputWeights[k]);
+        for(int k = 0; k<brain.C[0]->neurons.size(); k++){
+                w_init.push_back(brain.C[0]->outputWeights[k]);
         }
 #endif
 
@@ -143,15 +129,13 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         uniform_real_distribution<double> distribution (-1.0,1.0);
         
 	        
+	    
 	
-	
-        int nSteps = 100000;
+        int nSteps = 500000;
         //cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
         
-        plant.choose(5);
+        plant.choose(2);
 
-        double TOTAL1 = 0.0;
-        double TOTAL2 = 0.0;
         double RandomNoise = 0.0, Reference=0.0, brainOutput=0.0, plantOutput = 0.0; 
         double error = 0.0, avg_error = 0.0, rms_error = 0.0, delayedError = 0.0, sqrd_error =0.0;
         for (int i = 0; i < nSteps; i++)
@@ -159,29 +143,22 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 //if (i%(nSteps/10)==nSteps/10-1){cout << 1+10*i/(nSteps+1) << ' ' << flush;}
                 
                 
-                /*if (i == nSteps/4){
+                /*if (i == floor(nSteps/4)){
                         plant.choose(7);
-                        //brain.Lambdas[0] = 0.0;
-                        //brain.Lambdas[1] = 1.0;
+                        brain.Lambdas[0] = 1.0;
+                        brain.Lambdas[1] = 0.0;
                 }
-                else if(i == 2*nSteps/4){
-                        plant.choose(1); //******************
-                        //brain.Lambdas[0] = 1.0/2.0;
-                        //brain.Lambdas[1] = 1.0/2.0;
-                        for (int z = 0; z<500; z++){
-                                //brain.RMS_FWDerror[0]->setLength(500);
-                                //brain.RMS_FWDerror[1]->setLength(500);
-                                //brain.RMS_FWDerror[0]->feed(0.0125);
-                                //brain.RMS_FWDerror[1]->feed(0.0125);
+                else if(i == floor(2*nSteps/4)){
+                        plant.choose(2); //******************
+                        brain.Lambdas[0] = 0.5;
+                        brain.Lambdas[1] = 0.5;
                         }
-                }
-                else if(i == 3*nSteps/4){
+                else if(i == floor(3*nSteps/4)){
                         plant.choose(7);
-                }
-                else if(i == 4*nSteps/5){
-                        plant.choose(4);
                 }*/
                 
+                if(i%20000==0){plant.choose(7);}
+                else if(i%10000==0){plant.choose(2);}
                 
                 
                 RandomNoise = distribution(generator);
@@ -204,17 +181,18 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 
                 error = brain.RefModel.getOutput() - plantOutput;
                 
+
                         brain.updateWeights();
-                        TOTAL1 += fabs(error);
-                        TOTAL2 += fabs(brain.FWD[0]->getSingleOutput()-plantOutput);
-
-                if (i > 2*nSteps/4){
                         brain.updateLambdas();
+                /*if (i>nSteps/2){
                 }
+                else
+                {
+                }*/
                 
-                      
+                //temp_log << i << '\t' << brain.C[0]->neurons[3]->getOutput()<< endl;
+                
 
-                
 //==============================================================================//
 #if LOG_DATA == 1                                                               //
                                                                                 //
@@ -229,15 +207,15 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 weights_log << '\n' << i ;                                      //
                 outputs_log << '\n' << i ;                                      //
                 double sumOP = 0.0;                                             //
-                for (int k = 0; k < brain.FWD[0]->neurons.size() ; k++ ){       //
+                for (int k = 0; k < brain.F[0]->neurons.size() ; k++ ){       //
                                                                                 //
                                                                                 //
                         outputs_log << '\t'                                     //
-                        << brain.FWD[0]->output[k];                             //
+                        << brain.F[0]->output[k];                             //
                                                                                 //
-                        sumOP +=  brain.FWD[0]->output[k];                      //
+                        sumOP +=  brain.F[0]->output[k];                      //
                 }                                                               //
-                outputs_log << '\t' << brain.CB_output << '\t' << sumOP;        //
+                outputs_log << '\t' << brain.C_output << '\t' << sumOP;        //
                                                                                 //
                 avg_error = avg_error*i/(i+1) +abs(error) * 1/(i+1);            //
                                                                                 //
@@ -250,40 +228,40 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 << i << '\t'                                                    //
                 << plantOutput                     << '\t'; 
                 
-                double sumFWD = 0.0;
-                for (int k = 0; k<brain.FWD.size() ;k++){                       //
-                double FWDerror = fabs(brain.FWD[k]->getSingleOutput()-plantOutput);
+                double sumF = 0.0;
+                for (int k = 0; k<brain.F.size() ;k++){                       //
+                double Ferror = fabs(brain.F[k]->getSingleOutput()-plantOutput);
                         forward_log 
-                        << brain.FWD[k]->getSingleOutput() << '\t'           //
-                        << brain.Lambdas[k] << '\t'
-                        << FWDerror << '\t';
+                        << brain.F[k]->getSingleOutput() << '\t'           //
+                        << Ferror << '\t'
+                        << brain.Lambdas[k] << '\t';
                         
-                        sumFWD += brain.FWD[k]->getSingleOutput()*brain.Lambdas[k];
+                        sumF += brain.F[k]->getSingleOutput()*brain.Lambdas[k];
                         
                         
-                        for (int j = 0; j < brain.FWD[0]->neurons.size() ; j++ ){       //
+                        for (int j = 0; j < brain.F[0]->neurons.size() ; j++ ){       //
                                 weights_log << '\t'                                     //
-                                << brain.FWD[k]->outputWeights[j] << '\t';              //  
+                                << brain.F[k]->outputWeights[j] << '\t';              //  
                                 }                                                       //
                 }
+                forward_log << endl;
                 
-                forward_log << sumFWD << endl;
+                
 #endif                                                                          //
                                                                                 //
 //==============================================================================//
         }
-        cout << "TOTAL CTRL ERROR : " << TOTAL1 << endl;
-        cout << "TOTAL FWD ERROR : " << TOTAL2 << endl;
+
         
 
 #if LOG_DATA == 1
-        for(int k = 0; k<brain.CB[0]->neurons.size(); k++){
+        for(int k = 0; k<brain.C[0]->neurons.size(); k++){
                 finalweights_log
                 << k <<         '\t'
                 << 0.0 <<       '\t'
                 << w_init[k] << '\t'
-                << brain.CB[0]->outputWeights[k] << '\t'
-                << brain.CB[0]->outputWeights[k]-w_init[k] << endl;
+                << brain.C[0]->outputWeights[k] << '\t'
+                << brain.C[0]->outputWeights[k]-w_init[k] << endl;
         }
 #endif
 
@@ -311,7 +289,7 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 */
         
         
-        
+        temp_log.close();
 #if LOG_DATA == 1
         training_log.close();
         weights_log.close();

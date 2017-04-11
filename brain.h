@@ -1,12 +1,9 @@
 #ifndef __BRAIN__H
 #define __BRAIN__H  
 
-#include "dynamics.h"
-#include "neuron.h"
 #include "cerebellum.h"
-#include <math.h>
+
 #include <limits>
-using namespace std;
 
 
 class Brain {
@@ -32,20 +29,20 @@ public:
 	
         Neuron RefModel;
 	Neuron Brainstem;
-	vector <Cerebellum *> CB;//  Cerebellar controllers
-	vector <Cerebellum *> FWD;// Forward Plant Models
+	vector <Cerebellum *> C;//  Cerebellar controllers
+	vector <Cerebellum *> F;// Forward Plant Models
 	
 	
 	double Reference;
-	double CB_output; 
+	double C_output; 
 	DelayLine DelayStem;
 	double Motor_CMD;
 
         //Errors	
 	double  Error;
         
-        vector <double> FWD_error;
-        vector <RMS *> RMS_FWDerror;
+        vector <double> F_error;
+        vector <DelayLine *> RMS_Ferror;
         
 	vector <double> Lambdas; //Responsibility estimators
         

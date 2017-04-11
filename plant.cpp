@@ -62,7 +62,6 @@ void Plant::setDynamics(string &fileName)
                 }
         myfile.close();
         }
-        
         curr_Index = 0; // Select first subPlant
 
 }

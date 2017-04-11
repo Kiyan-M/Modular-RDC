@@ -4,7 +4,8 @@
 DelayLine::DelayLine()
 	{
 		theLine.clear();
-		currentIndex=0;
+		currentIndex = 0;
+		decayRate = 0.0;
 	}
 
 	void DelayLine::setLength(unsigned int length)
@@ -21,6 +22,8 @@ DelayLine::DelayLine()
 			theLine[i]=0.0;
 		}
 		currentIndex=0;
+		Average = 0.0;
+		decayingAverage = 0.0;
 	}
 
 
@@ -29,6 +32,10 @@ DelayLine::DelayLine()
 		double retValue;
 		retValue=theLine[currentIndex]; //return oldest value
 		theLine[currentIndex]=input; //put newest value into current index
+		
+		Average += (input-retValue)/((double)theLine.size());
+		decayingAverage = decayingAverage*decayRate + input/((double)theLine.size());
+		
 		if (currentIndex<theLine.size()-1)
 		{
 			currentIndex++;
@@ -45,30 +52,23 @@ DelayLine::DelayLine()
 	{
 	        return (double)theLine.size();
 	}
-
-RMS::RMS()
-{
-        Line.clear();
-        average = 0.0;
-}
-        void RMS::setLength(unsigned int length)
+	
+        double DelayLine::getAverage()
         {
-                Line.setLength(length);
+                return Average;
         }
         
-        double RMS::feed(double in)
+        double DelayLine::getDecayingAverage()
         {
-                in = pow(in,2);
-                double out;
-                out = Line.feed(in);
-                average += (in-out)/((double)Line.getLength());
-                
-                return average;
+                return decayingAverage;
         }
-        double RMS::getAverage()
+        
+        void DelayLine::setDecayRate(double rate)
         {
-                return average;
+                decayRate =rate;
         }
+
+
 
 
 Dynamics::Dynamics()

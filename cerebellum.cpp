@@ -1,13 +1,4 @@
 #include "cerebellum.h"
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <memory.h>
-#include <random>
-#include <chrono>
-#include <stdio.h>
-#include <stdlib.h>
-#include "neuron.h"
 
 using namespace std;
 
@@ -35,157 +26,114 @@ using namespace std;
         
         
 }
-void Cerebellum::setNeuronalDynamics(string &fileName )
+void Cerebellum::setNeuronalDynamics(double aMin, double aMax, int aCount )
 {
-	//read file with neuronal dynamics
-        string line;
-        ifstream myfile (fileName.c_str() );
 
-  // Random Noise
+        bool log_spacing = 1;
+
+        double T=0.001;        
+        assert(aMax>=aMin);
+        assert(aCount>0);
+        
+        double d_a = (aMax-aMin)/(double(aCount-1));
+        
+
+
+        // Random Noise
         unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
         default_random_engine generator (seed);
         uniform_real_distribution<double> distribution (-0.001,0.001);
-
-  if (myfile.is_open())
-  {
-    bool isBk=true; //the first line is a bk parameter
+        
 	vector <double> aks;
 	vector <double> bks;
 	aks.clear();
 	bks.clear();
-	int paraCount=0;
-	while ( myfile.good() )
-        {
-          getline (myfile,line);
+ 
         
-	  //now we extract the numbers from the line
-	  char *a=new char[line.size()+1];
-	  a[line.size()]=0; //null terminate the string
-	  memcpy(a,line.c_str(),line.size());
-	  char *dummy;
-	  int k=0;
-	  float value;
-	  dummy=strtok(a,"\t "); //get string until the next delimiter
-	  while(dummy!=NULL)
-	  {
-		  sscanf(dummy,"%f", &value); //convert to float
+        // First Neuron has constant input 1.0
+        bks.push_back(0.0);
+        bks.push_back(1.0);
+        aks.push_back(1.0);
+        aks.push_back(0.0);
+        
+        Neuron *singleNeuron = new Neuron;
+	singleNeuron->setDynamics(bks,aks);
 
-		  k++;
-		  if (isBk)
-		  { 
-//			  cout<<"  is bk Value"<<endl;
-			  bks.push_back(value);
-		  }
-		  else
-		  {
-//			  cout<<"  is ak Value!"<<endl;
-			  aks.push_back(value);
-		  }
-		  dummy=strtok(NULL,"\t ");
-	  }
-	  //end of line reached
-	  isBk=!isBk;
-	  
+	singleNeuron->addInput(-5);
+	singleNeuron->setWeight(0,1.0);
+        
+	neurons.push_back(singleNeuron);
+	output.push_back(0.0); //add a cerebellar output
+	outputWeights.push_back(0.0);
+        
+        aks.clear();
+        bks.clear();
+        
+        
+        if (log_spacing == 1){
+                double aMin_log=log(aMin);
+                double aMax_log=log(aMax);
+                double d_a_log=(aMax_log-aMin_log)/(double(aCount-1));
+                double a_log = aMin_log;
+                
+                double a = exp(a_log);
+                for (int i=0; i< aCount; i++){
+                        bks.push_back(0);
+                        bks.push_back(a*a*T*T*exp(-a*T));
+                        bks.push_back(0);
+                        aks.push_back(1);
+                        aks.push_back(-2*exp(-a*T));
+                        aks.push_back( exp(-2*a*T));
+                        
+                        Neuron *singleNeuron = new Neuron;
+		        singleNeuron->setDynamics(bks,aks);
 
-	  if (isBk)
-	  {
-		  //this means we have a full set of bks and aks for a neuron
-		  //we can set the dynamics
-		  Neuron *singleNeuron = new Neuron;
-		  singleNeuron->setDynamics(bks,aks);
+		        singleNeuron->addInput(-1);
+		        singleNeuron->setWeight(0,1.0);
+                        
+		        neurons.push_back(singleNeuron);
+		        output.push_back(0.0); //add a cerebellar output
+		        outputWeights.push_back(distribution(generator));
+                        
+                        aks.clear();
+                        bks.clear();
+                        //a +=d_a;
+                        a_log+=d_a_log;
+                        a=exp(a_log);
+                }
+        }
+        else{
+                
+                double a = aMin;
+                for (int i=0; i< aCount; i++){
+                        bks.push_back(0);
+                        bks.push_back(a*a*T*T*exp(-a*T));
+                        bks.push_back(0);
+                        aks.push_back(1);
+                        aks.push_back(-2*exp(-a*T));
+                        aks.push_back( exp(-2*a*T));
+                        
+                        Neuron *singleNeuron = new Neuron;
+		        singleNeuron->setDynamics(bks,aks);
 
-		  neurons.push_back(singleNeuron);
-		  output.push_back(0.0); //add a cerebellar output
-		  outputWeights.push_back(distribution(generator)) ; //set the output weight to 0
-
-		  //clear bks and aks
-		  aks.clear();
-		  bks.clear();
-		  
-
-	  }
-//	  cout<<"-------Parameter set "<< paraCount<<" stored!"<<endl;
-	  paraCount++;
-
-    }
-    myfile.close();
-  }
+		        singleNeuron->addInput(-1);
+		        singleNeuron->setWeight(0,1.0);
+                        
+		        neurons.push_back(singleNeuron);
+		        output.push_back(0.0); //add a cerebellar output
+		        outputWeights.push_back(distribution(generator));
+                        
+                        aks.clear();
+                        bks.clear();
+                        
+                        a +=d_a;
+                }
+        }
 }
 
-void Cerebellum::setConnections(string &fileName)
+void Cerebellum::setConnections()
 {
-  string line;
-  ifstream myfile (fileName.c_str());
-  if (myfile.is_open())
-  {
 
-	while ( myfile.good() )
-    {
-      getline (myfile,line);
-	  //now we extract the numbers from the line
-	  char *a=new char[line.size()+1];
-	  a[line.size()]=0; //null terminate the string
-	  memcpy(a,line.c_str(),line.size());
-	  char *dummy;
-	  int k=0;
-	  float value;
-	  dummy=strtok(a,"\t "); //get string until the next delimiter
-	  int isOutputNeuron=1; //the first integer always specifies the output neuron, the remaining the target neurons
-	  int isTargetNeuron=1; //if not target neuron than it is weight
-	  int outputNeuronIndex=-2;
-	  int targetNeuronIndex=-1;
-	  while(dummy!=NULL)
-	  {
-		  sscanf(dummy,"%f", &value); //convert to int
-		  k++;
-		  if (isOutputNeuron)
-		  {
-			  isOutputNeuron=0;
-			  outputNeuronIndex=(int) value; //store the output neuron index
-		  }
-		  else
-		  {
-			  //now we have the target neuron index and we can build the connection table
-			  if (isTargetNeuron)
-			  {
-				  isTargetNeuron=0;	
-				  targetNeuronIndex=(int) value;
-				  
-				  if ((targetNeuronIndex< (int) neurons.size())&&(outputNeuronIndex< (int) neurons.size()))
-				  {
-					  //only if the target neuron actually exists
-					  if (targetNeuronIndex!=NO_CONNECTION)
-					  {
-						neurons[targetNeuronIndex]->addInput(outputNeuronIndex);
-					  }
-				  }
-				  else
-				  {
-					  cout<<"NETWORK CONNECTION ERROR WITH OUTPUT"<<outputNeuronIndex<<"CONNECTIONG TO NEURON "<<value<<" NETWORK SIZE IS  "<<neurons.size()<<endl;
-				  }
-			  }
-			  else //is weight value
-			  {
-
-				  isTargetNeuron=1; //next time the value is target neuron again
-				  vector<int> allInputConnections ;
-				  if (targetNeuronIndex!=NO_CONNECTION)
-				  {
-					  int latestInputIndex;
-					  neurons[targetNeuronIndex]->getInputConnections(allInputConnections);
-					  latestInputIndex=allInputConnections.size() - 1; 
-					  neurons[targetNeuronIndex]->setWeight(latestInputIndex, value); //sets the weight
-
-				  }
-			  }
-
-		  }
-		  
-		  dummy=strtok(NULL,"\t ");
-
-	  }
-	} //all lines
-  }//file is open
 }
 
 double Cerebellum::updateNetwork()
@@ -236,6 +184,14 @@ double Cerebellum::updateNetwork()
 #endif
 
 			}
+else if (outputIndices[k]==CONSTANT_UNIT_INPUT)
+			{
+				neurons[i]->setInput(k, 0.0001);
+#if PRINT_DEBUG_INFO==1
+				cout<<"  value: Constant value of 0.0001";
+#endif
+
+			}
 			else //normal neuron connection 
 			{
 				//but only if this index is possible
@@ -266,7 +222,6 @@ double Cerebellum::updateNetwork()
 	cout<<endl<<endl<<"Output state"<<endl;
 #endif
 
-	//
 	singleOutput=0.0; // clear the single cerebellar output
 	for (int i=0; i<neurons.size(); i++)
 	{

@@ -1,19 +1,13 @@
 #ifndef __PLANT__H
 #define __PLANT__H
 
-#include "dynamics.h"
 #include "neuron.h"
 
-#include <iostream>
 #include <fstream>
+#include <memory.h>
 #include <string>
 #include <vector>
-#include <memory.h>
-#include <stdio.h>
-#include <stdlib.h>
 
-
-using namespace std;
 
 class Plant
 {
@@ -26,13 +20,13 @@ public:
         double getOutput();
         void matchStates();
         
+private:
         vector <Neuron *> subPlant;
         double Input;
         double Output;
         unsigned int curr_Index;
         unsigned int new_Index; 
         
-private:
 };
 
 #endif

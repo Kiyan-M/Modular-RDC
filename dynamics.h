@@ -2,8 +2,11 @@
 #define __DYNAMICS__H
 
 #include <iostream>
-#include <vector>
+#include <fstream>
 #include <math.h>
+#include <vector>
+
+
 using namespace std;
 
 
@@ -15,21 +18,15 @@ public:
 	void clear();
 	double feed(double input);
 	double getLength();
+        double getAverage();
+        double getDecayingAverage();
+        void setDecayRate(double rate);
 private:
 	vector<double> theLine;
 	unsigned int currentIndex;
-};
-
-class RMS
-{
-public:
-        RMS();
-        void setLength(unsigned int length);
-        double feed(double in);
-        double getAverage();
-private:
-        DelayLine Line;
-        double average;
+	double Average;
+	double decayingAverage;
+	double decayRate;
 };
 
 

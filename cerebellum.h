@@ -2,10 +2,16 @@
 #define __CEREBELLUM__H
 
 #include "neuron.h"
-#include "dynamics.h"
-#include <iostream>
+
+#include <assert.h>
+#include <chrono>
 #include <fstream>
-using namespace std;
+#include <memory.h>
+#include <random>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
+
 #define PRINT_DEBUG_INFO 0
 class Cerebellum
 {
@@ -14,12 +20,12 @@ public:
 	/*
 	 * reads dynamics (bks and aks) from file
 	*/
-	void setNeuronalDynamics(string &fileName );
+	void setNeuronalDynamics(double aMin, double aMax, int aCount );
 
 	/*
 	*reads connections from file
 	*/
-	void setConnections(string &fileName);
+	void setConnections();
 
 	/*
 	* updates all neuron inputs

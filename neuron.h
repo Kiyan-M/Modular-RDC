@@ -1,15 +1,14 @@
-
 #ifndef __NEURON__H
 #define __NEURON__H
-#include <iostream>
-#include <vector>
+
 #include "dynamics.h"
-using namespace std;
+
 
 #define NO_CONNECTION -2
 #define INPUT_LAYER -1
 #define OUTPUT_LAYER -3
 #define FILTERED_OUTPUT_LAYER -4
+#define CONSTANT_UNIT_INPUT -5
 class Neuron
 {
 public:
