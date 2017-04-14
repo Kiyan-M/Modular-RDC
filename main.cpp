@@ -66,56 +66,54 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         
         
         
-        Plant plant;
-        //string fileName("testDynamics.dat");
-        string fileName("plantDynamics.dat"); //Plants in rane 5->50 steps of 5 (1->9)
-        plant.setDynamics(fileName);
+    PlantRK plant;
+    plant.setDynamics(10.0);
         
-       // creates Low-pass Filter //
-        vector <double> asRef;
-	vector <double> bsRef;
-	asRef.clear();
-	bsRef.clear();
-	
-                // Band-Pass Butterworth Filter ( 0.5-2.0 Hz )
-                asRef.push_back( 1.0);
-                asRef.push_back(-3.977786058262946);
-                asRef.push_back( 5.933603493831731);
-                asRef.push_back(-3.933847942486183);
-                asRef.push_back( 0.9780305084587277);
-                bsRef.push_back( 0.0);
-                bsRef.push_back( 7.837379757436192e-05);
-                bsRef.push_back(-7.895199724392678e-05);
-                bsRef.push_back(-7.721739823523945e-05);
-                bsRef.push_back( 7.779559790480432e-05);
+// creates Low-pass Filter //
+vector <double> asRef;
+vector <double> bsRef;
+asRef.clear();
+bsRef.clear();
 
-                /*
-                // Band-Pass Butterworth Filter ( 0.5-10.0 Hz )
-                asRef.push_back( 1.0);
-                asRef.push_back(-3.906756644346583);
-                asRef.push_back( 5.724450493341636);
-                asRef.push_back(-3.728613601606459);
-                asRef.push_back( 0.9109196897991230);
-                bsRef.push_back( 0.0);
-                bsRef.push_back( 1.913246851237629e-03);
-                bsRef.push_back(-1.971836935925982e-03);
-                bsRef.push_back(-1.796066681879949e-03);
-                bsRef.push_back( 1.854656766568302e-03);
-                */
-                
-        Neuron preFilter;	
+            // Band-Pass Butterworth Filter ( 0.5-2.0 Hz )
+            asRef.push_back( 1.0);
+            asRef.push_back(-3.977786058262946);
+            asRef.push_back( 5.933603493831731);
+            asRef.push_back(-3.933847942486183);
+            asRef.push_back( 0.9780305084587277);
+            bsRef.push_back( 0.0);
+            bsRef.push_back( 7.837379757436192e-05);
+            bsRef.push_back(-7.895199724392678e-05);
+            bsRef.push_back(-7.721739823523945e-05);
+            bsRef.push_back( 7.779559790480432e-05);
 
-        preFilter.setSize(1);
-        preFilter.setWeight(0,1.0);
-        preFilter.setInput(0,0.0);
+            /*
+            // Band-Pass Butterworth Filter ( 0.5-10.0 Hz )
+            asRef.push_back( 1.0);
+            asRef.push_back(-3.906756644346583);
+            asRef.push_back( 5.724450493341636);
+            asRef.push_back(-3.728613601606459);
+            asRef.push_back( 0.9109196897991230);
+            bsRef.push_back( 0.0);
+            bsRef.push_back( 1.913246851237629e-03);
+            bsRef.push_back(-1.971836935925982e-03);
+            bsRef.push_back(-1.796066681879949e-03);
+            bsRef.push_back( 1.854656766568302e-03);
+            */
+            
+    Neuron preFilter;	
 
-        preFilter.setDynamics(bsRef,asRef);
-        preFilter.setIC(0.0);
+    preFilter.setSize(1);
+    preFilter.setWeight(0,1.0);
+    preFilter.setInput(0,0.0);
 
-        
-        // creates controller //S
-        Brain brain(2);
-        //brain.Lambdas[0]=1.0;
+    preFilter.setDynamics(bsRef,asRef);
+    preFilter.setIC(0.0);
+
+    
+    // creates controller //S
+    Brain brain(1);
+    brain.Lambdas[0]=1.0;
 #if LOG_DATA == 1
         vector <double> w_init;
         for(int k = 0; k<brain.C[0]->neurons.size(); k++){
@@ -123,75 +121,63 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         }
 #endif
 
-        // Random Noise //
-        unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-        mt19937 generator (seed);
-        uniform_real_distribution<double> distribution (-1.0,1.0);
+    // Random Noise //
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    mt19937 generator (seed);
+    uniform_real_distribution<double> distribution (-1.0,1.0);
+    
         
-	        
-	    
-	
-        int nSteps = 500000;
-        //cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
-        
-        plant.choose(2);
+    int nSteps = 80000;
+    //cout << "    STARTING Training Phase... (" << nSteps << " steps)" << endl;
 
-        double RandomNoise = 0.0, Reference=0.0, brainOutput=0.0, plantOutput = 0.0; 
-        double error = 0.0, avg_error = 0.0, rms_error = 0.0, delayedError = 0.0, sqrd_error =0.0;
-        for (int i = 0; i < nSteps; i++)
-        {
-                //if (i%(nSteps/10)==nSteps/10-1){cout << 1+10*i/(nSteps+1) << ' ' << flush;}
-                
-                
-                /*if (i == floor(nSteps/4)){
-                        plant.choose(7);
-                        brain.Lambdas[0] = 1.0;
-                        brain.Lambdas[1] = 0.0;
-                }
-                else if(i == floor(2*nSteps/4)){
-                        plant.choose(2); //******************
-                        brain.Lambdas[0] = 0.5;
-                        brain.Lambdas[1] = 0.5;
-                        }
-                else if(i == floor(3*nSteps/4)){
-                        plant.choose(7);
-                }*/
-                
-                if(i%20000==0){plant.choose(7);}
-                else if(i%10000==0){plant.choose(2);}
-                
-                
-                RandomNoise = distribution(generator);
-                
-                preFilter.setInput(0,RandomNoise);
-                preFilter.runIteration();
-                Reference = preFilter.getOutput();
-                
-                brain.setRef(Reference);
-                brain.runIteration();
-                brainOutput = brain.getOutput();
-                
-                plant.setInput(brainOutput);
-                //plant.setInput(Reference);
-                plant.runIteration();
-                plantOutput = plant.getOutput();
-                
-                brain.calculateErrors(plantOutput);
+    double RandomNoise = 0.0, Reference=0.0, brainOutput=0.0, plantOutput = 0.0,plantOGOutput = 0.0; 
+    double error = 0.0, avg_error = 0.0, rms_error = 0.0, delayedError = 0.0, sqrd_error =0.0;
+    for (int i = 0; i < nSteps; i++)
+    {
+            //if (i%(nSteps/10)==nSteps/10-1){cout << 1+10*i/(nSteps+1) << ' ' << flush;}
+            
+            
+            /*if (i == floor(nSteps/4)){
+                    plant.setDynamics(30.0);
+                    brain.Lambdas[0] = 0.0;
+                    brain.Lambdas[1] = 1.0;
+            }
+            else if(i == floor(2*nSteps/4)){
+                    plant.setDynamics(10.0); //******************
+                    brain.Lambdas[0] = 0.5;
+                    brain.Lambdas[1] = 0.5;
+                    }
+            else if(i == floor(3*nSteps/4)){
+                    plant.setDynamics(30.0);
+            }*/
+            
+            //if(i%40000==0){plant.setDynamics(40.0);}
+            //else if(i%20000==0){plant.setDynamics(10.0);}
+            
+            
+            RandomNoise = distribution(generator);
+            
+            preFilter.setInput(0,RandomNoise);
+            preFilter.runIteration();
+            Reference = preFilter.getOutput();
+            
+            brain.setRef(Reference);
+            brain.runIteration();
+            brainOutput = brain.getOutput();
+            
+            plant.setInput(brainOutput);
+            plant.runIteration(10);
+            plantOutput = plant.getOutput();
+            
+            brain.calculateErrors(plantOutput);
 
 
-                error = brain.RefModel.getOutput() - plantOutput;
-                
+            error = brain.RefModel.getOutput() - plantOutput;
+            
+            brain.updateWeights();
+            brain.updateLambdas();
 
-                        brain.updateWeights();
-                        brain.updateLambdas();
-                /*if (i>nSteps/2){
-                }
-                else
-                {
-                }*/
-                
-                //temp_log << i << '\t' << brain.C[0]->neurons[3]->getOutput()<< endl;
-                
+            
 
 //==============================================================================//
 #if LOG_DATA == 1                                                               //
@@ -207,15 +193,15 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
                 weights_log << '\n' << i ;                                      //
                 outputs_log << '\n' << i ;                                      //
                 double sumOP = 0.0;                                             //
-                for (int k = 0; k < brain.F[0]->neurons.size() ; k++ ){       //
+                for (int k = 0; k < brain.F[0]->neurons.size() ; k++ ){         //
                                                                                 //
                                                                                 //
                         outputs_log << '\t'                                     //
-                        << brain.F[0]->output[k];                             //
+                        << brain.F[0]->output[k];                               //
                                                                                 //
-                        sumOP +=  brain.F[0]->output[k];                      //
+                        sumOP +=  brain.F[0]->output[k];                        //
                 }                                                               //
-                outputs_log << '\t' << brain.C_output << '\t' << sumOP;        //
+                outputs_log << '\t' << brain.C_output << '\t' << sumOP;         //
                                                                                 //
                 avg_error = avg_error*i/(i+1) +abs(error) * 1/(i+1);            //
                                                                                 //
@@ -265,32 +251,10 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
         }
 #endif
 
-/*
-        plant.choose(2);
-        for (int j = 0; j < 100; j++){
+
         
-                RandomNoise = distribution(generator);
-                
-                preFilter.setInput(0,RandomNoise);
-                preFilter.runIteration();
-                Reference = preFilter.getOutput();
-                
-                brain.setRef(Reference);
-                brain.runIteration();
-                brainOutput = brain.getOutput();
-                
-                plant.setInput(brainOutput);
-                plant.runIteration();
-                plantOutput = plant.getOutput();
-                
-                brain.updateLambdas();
-                brain.printLambdas();
-        }
-*/
-        
-        
-        temp_log.close();
 #if LOG_DATA == 1
+        temp_log.close();
         training_log.close();
         weights_log.close();
         finalweights_log.close();
@@ -300,7 +264,5 @@ ofstream training_log, weights_log, finalweights_log, outputs_log, error_log, fo
 #endif
 
 
-        //cout << "\nSIMULATION COMPLETE" << endl;
-        //cout << "*******************************" << endl << endl << endl;
 	return 1;
 }

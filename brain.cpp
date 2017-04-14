@@ -144,6 +144,7 @@ int Brain::runIteration()
                 
                 C_output += C[j]->getSingleOutput()*Lambdas[j] ;
         }
+        
 
         
 }
@@ -235,13 +236,13 @@ double Brain::getOutput()
 
 int Brain::updateLambdas() //Modified Narendra
 {
-        double alpha = 0.5, Beta = 0.5;
+        double alpha = 0.2, Beta = 0.8;
         double sum = 0.0, Cost;
         for (int i = 0; i < F_error.size(); i++)
         {
                 
                 if (Lambdas[i] < 1e-12){Lambdas[i] =1e-12;} 
-                Cost = alpha*pow(F_error[i],2) + Beta*RMS_Ferror[i]->getAverage()*500.0;
+                Cost = alpha*pow(F_error[i],2) + Beta*RMS_Ferror[i]->getAverage()*100.0;
                 if (Cost < 1e-12){Cost =1e-12;} 
                 Lambdas[i] = 1.0/Cost;
                 

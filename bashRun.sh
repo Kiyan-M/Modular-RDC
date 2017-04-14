@@ -6,7 +6,7 @@ else
 fi
         
 
-if g++ -std=c++11 $runFile dynamics.cpp neuron.cpp plant.cpp cerebellum.cpp brain.cpp; then
+if g++ -std=c++11 $runFile dynamics.cpp neuron.cpp cerebellum.cpp brain.cpp plant.cpp; then
         echo -e "\nCompiled..."
         ./a.out
 else
